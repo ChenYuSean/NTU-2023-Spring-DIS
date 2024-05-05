@@ -276,6 +276,7 @@ int main(int argc, char *argv[]) {
         FormattingParserTarget formattingTarget(toPly, options.upgrade);
         ParseFiles(&formattingTarget, filenames);
     } else {
+        DBG_STR("Create Scene");
         // Parse provided scene description files
         BasicScene scene;
         BasicSceneBuilder builder(&scene);
