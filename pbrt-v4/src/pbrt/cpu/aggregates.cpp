@@ -22,8 +22,8 @@ namespace pbrt {
 
 // ---------------------------------------------------------------------------
 
-pstd::optional<ShapeIntersection> Voxel::Intersect(const Ray &ray, Float tMax) const {
-    // Return the min t of the primitives
+pstd::optional<ShapeIntersection> Voxel::Intersect(const Ray &ray, Float tMax, Float &tHit) const {
+    // Return the min shape interaction of the primitives
     pstd::optional<ShapeIntersection> min_si = {};
     for (auto it = 0; it < primitives_ptr.size(); ++it) {
         const Primitive &primitive = *(primitives_ptr[it]);
@@ -35,9 +35,15 @@ pstd::optional<ShapeIntersection> Voxel::Intersect(const Ray &ray, Float tMax) c
 
         if (!min_si || si->tHit < min_si->tHit) {
             min_si = si;
+            tHit = si->tHit;
         }
     }
     return min_si;
+}
+
+pstd::optional<ShapeIntersection> Voxel::Intersect(const Ray &ray, Float tMax) const {
+    Float tHit;
+    return this->Intersect(ray, tMax, tHit);
 }
 
 bool Voxel::IntersectP(const Ray &ray, Float tMax) const {
@@ -115,33 +121,35 @@ pstd::optional<ShapeIntersection> GridAggregate::Intersect(const Ray &ray,
     }
 
     // Find the starting intersection
-    float tNear[3];
-    float tFar[3];
-    float steps[3];
+    Float tNear[3];
+    Float tFar[3];
 
-    float min_t = 0;
-    float max_t = tMax;
+    Float min_t = 0;
+    Float max_t = tMax;
 
     for (int axis = 0; axis < 3; ++axis) {
-        float near = (this->bounds.pMin[axis] - ray.o[axis]) * invDir[axis];
-        float far = (this->bounds.pMax[axis] - ray.o[axis]) * invDir[axis];
+        Float near = (this->bounds.pMin[axis] - ray.o[axis]) * invDir[axis];
+        Float far = (this->bounds.pMax[axis] - ray.o[axis]) * invDir[axis];
 
         tNear[axis] = std::min(near, far);
         tFar[axis] = std::max(near, far);
-        steps[axis] = std::abs(this->width[axis] * invDir[axis]);
 
         min_t = std::max(min_t, tNear[axis]);
         max_t = std::min(max_t, tFar[axis]);
     }
 
+    // Setup 3D DDA
+    Float steps[3];
     for (int axis = 0; axis < 3; ++axis) {
+        steps[axis] = std::abs(this->width[axis] * invDir[axis]);
+        if(steps[axis] == 0) {
+            tNear[axis] = max_t;
+        }
         while (tNear[axis] < min_t) {
             tNear[axis] += steps[axis];
         }
     }
-
-    // 3D DDA
-    std::vector<float> CrossingPoints;
+    std::vector<Float> CrossingPoints;
     CrossingPoints.push_back(min_t);
     for(;;){
         int target_axis = 0;
@@ -155,14 +163,17 @@ pstd::optional<ShapeIntersection> GridAggregate::Intersect(const Ray &ray,
         tNear[target_axis] += steps[target_axis];
         CrossingPoints.push_back(tNear[target_axis]);
 
-        if (tNear[target_axis] > max_t) {
+        if (tNear[target_axis] >= max_t) {
             break;
         }
     }
-
     // Walk through the crossing points
+    // DBG_STR("Walk through the crossing points");
+    // DBG_VAR(CrossingPoints.size());
+    Float min_si_t = tMax;
+    pstd::optional<ShapeIntersection> min_si = {};
     for (int i = 1; i < CrossingPoints.size(); ++i) {
-        float mid_t = (CrossingPoints[i] + CrossingPoints[i-1]) / 2;
+        Float mid_t = (CrossingPoints[i] + CrossingPoints[i-1]) / 2;
         Point3f mid_point = ray.o + ray.d * mid_t;
 
         int o = offset(posToVoxel(mid_point, 0), posToVoxel(mid_point, 1),
@@ -170,14 +181,16 @@ pstd::optional<ShapeIntersection> GridAggregate::Intersect(const Ray &ray,
 
         const Voxel &voxel = this->voxels[o];
 
-        pstd::optional<ShapeIntersection> si = voxel.Intersect(ray, tMax);
+        Float tHit;
+        pstd::optional<ShapeIntersection> si = voxel.Intersect(ray, tMax, tHit);
 
-        if (si) {
-            return si;
+        if (si && tHit < min_si_t) {
+            min_si_t = tHit;
+            min_si = si;
         }
     }
 
-    return {};
+    return min_si;
 }
 
 bool GridAggregate::IntersectP(const Ray &ray, Float tMax) const {

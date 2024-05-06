@@ -33,6 +33,7 @@ struct Voxel {
     Primitive GetPrimitive(int i) { return *(primitives_ptr[i]); }
 
     pstd::optional<ShapeIntersection> Intersect(const Ray &ray, Float tMax) const;
+    pstd::optional<ShapeIntersection> Intersect(const Ray &ray, Float tMax, Float &tHit) const;
     bool IntersectP(const Ray &ray, Float tMax) const;
 
   private:
