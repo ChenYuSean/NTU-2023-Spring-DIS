@@ -6,9 +6,7 @@
 #define PBRT_PBRT_H
 
 #include <stdint.h>
-#include <stdio.h>
 #include <cstddef>
-#include <iostream>
 
 #ifdef PBRT_IS_WINDOWS
 #ifndef UNICODE
@@ -71,10 +69,6 @@
 
 // From ABSL_ARRAYSIZE
 #define PBRT_ARRAYSIZE(array) (sizeof(::pbrt::detail::ArraySizeHelper(array)))
-
-#define DBG_STR(...) printf(__FILE__ ":" TO_STRING(__LINE__) ": " __VA_ARGS__ "\n")
-
-#define DBG_VAR(var) std::cout << #var << " = " << var << '\n'
 
 namespace pbrt {
 namespace detail {

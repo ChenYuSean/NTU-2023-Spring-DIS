@@ -1,27 +1,23 @@
 
 ## Build
 ```bash
-cd ./pbrt-v4
+cmake -S ./pbrt-v4 -B ./pbrt-v4/build/ -DCMAKE_BUILD_TYPE=Debug
 
-cmake -S ./ -B ./build/ -DCMAKE_BUILD_TYPE=Debug
-
-make -C build/ -j8
+make -C ./pbrt-v4/build/ -j8
 ```
 
 ## Execute
 ```bash
-cd ./pbrt-v4
+./pbrt-v4/build/pbrt --outfile sphere.png ./scene/sphere.pbrt
 
-./build/pbrt --outfile sphere.png --log-level verbose ../scene/sphere.pbrt
+./pbrt-v4/build/pbrt ./scene/pbrt-v4-scenes-master/pbrt-book/book.pbrt
 
-./build/pbrt --outfile sphere.png ../scene/pbrt-v4-scenes-master/pbrt-book/book.pbrt
+./pbrt-v4/build/pbrt ./scene/teapot/scene-v4.pbrt
 
-./build/pbrt --outfile sphere.png --log-level verbose ../scene/teapot/scene-v4.pbrt
-
-./build/pbrt --outfile sphere.png --log-level verbose ../scene/veach-mis/scene-v4.pbrt
+./pbrt-v4/build/pbrt ./scene/veach-mis/scene-v4.pbrt
 ```
 
-### Command Options
+### Options Arguments
 
 - `--outfile`: saved filename
 - `--write-partial-images`: output during rendering

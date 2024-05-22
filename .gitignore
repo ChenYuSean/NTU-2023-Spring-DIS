@@ -1,2 +1,5 @@
 scene/
 .vscode
+*.png
+*.jpeg
+*.jpg

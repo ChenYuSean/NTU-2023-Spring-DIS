@@ -22,7 +22,6 @@
 namespace pbrt {
 
 void RenderCPU(BasicScene &parsedScene) {
-    DBG_STR("Start Render");
     Allocator alloc;
     ThreadLocal<Allocator> threadAllocators([]() { return Allocator(); });
 
