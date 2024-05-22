@@ -12,13 +12,13 @@ make -C build/ -j8
 ```bash
 cd ./pbrt-v4
 
-./build/pbrt --outfile sphere.png --log-level verbose ../scene/sphere.pbrt
+./build/pbrt --write-partial-images ../scene/sphere.pbrt
 
-./build/pbrt --outfile sphere.png ../scene/pbrt-v4-scenes-master/pbrt-book/book.pbrt
+./build/pbrt ../scene/pbrt-v4-scenes-master/pbrt-book/book.pbrt
 
-./build/pbrt --outfile sphere.png --log-level verbose ../scene/teapot/scene-v4.pbrt
+./build/pbrt --log-level verbose ../scene/teapot/scene-v4.pbrt
 
-./build/pbrt --outfile sphere.png --log-level verbose ../scene/veach-mis/scene-v4.pbrt
+./build/pbrt --log-level verbose ../scene/veach-mis/scene-v4.pbrt
 ```
 
 ### Command Options
