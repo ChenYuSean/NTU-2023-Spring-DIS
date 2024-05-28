@@ -5,8 +5,8 @@
 #ifndef PBRT_PBRT_H
 #define PBRT_PBRT_H
 
-#include <stdint.h>
 #include <cstddef>
+#include <stdint.h>
 
 #ifdef PBRT_IS_WINDOWS
 #ifndef UNICODE
@@ -15,7 +15,7 @@
 #ifndef _UNICODE
 #define UNICODE
 #endif
-#endif  // PBRT_IS_WINDOWS
+#endif // PBRT_IS_WINDOWS
 
 // GPU Macro Definitions
 #if defined(__CUDA_ARCH__)
@@ -57,18 +57,27 @@
 #ifndef PBRT_TO_STRING
 #define PBRT_TO_STRING(x) PBRT_TO_STRING2(x)
 #define PBRT_TO_STRING2(x) #x
-#endif  // !PBRT_TO_STRING
+#endif // !PBRT_TO_STRING
 #ifdef PBRT_IS_GPU_CODE
 #define PBRT_DBG(...) printf(__FILE__ ":" TO_STRING(__LINE__) ": " __VA_ARGS__)
 #else
-#define PBRT_DBG(...) fprintf(stderr, __FILE__ ":" TO_STRING(__LINE__) ": " __VA_ARGS__)
-#endif  // PBRT_IS_GPU_CODE
+#define PBRT_DBG(...)                                                          \
+  fprintf(stderr, __FILE__ ":" TO_STRING(__LINE__) ": " __VA_ARGS__)
+#endif // PBRT_IS_GPU_CODE
 #else
 #define PBRT_DBG(...)
-#endif  // PBRT_DBG_LOGGING
+#endif // PBRT_DBG_LOGGING
 
 // From ABSL_ARRAYSIZE
 #define PBRT_ARRAYSIZE(array) (sizeof(::pbrt::detail::ArraySizeHelper(array)))
+
+// ----- Custom Macro ------
+#include <iostream>
+#define DBG_STR(...)                                                           \
+  printf(__FILE__ ":" TO_STRING(__LINE__) ": " __VA_ARGS__ "\n")
+
+#define DBG_VAR(var) std::cout << #var << " = " << var << '\n'
+// -------------------------
 
 namespace pbrt {
 namespace detail {
@@ -76,17 +85,16 @@ namespace detail {
 template <typename T, uint64_t N>
 auto ArraySizeHelper(const T (&array)[N]) -> char (&)[N];
 
-}  // namespace detail
-}  // namespace pbrt
+} // namespace detail
+} // namespace pbrt
 
 namespace pstd {
 
 namespace pmr {
-template <typename T>
-class polymorphic_allocator;
+template <typename T> class polymorphic_allocator;
 }
 
-}  // namespace pstd
+} // namespace pstd
 
 namespace pbrt {
 
@@ -101,20 +109,15 @@ using Float = float;
 using FloatBits = uint64_t;
 #else
 using FloatBits = uint32_t;
-#endif  // PBRT_FLOAT_AS_DOUBLE
+#endif // PBRT_FLOAT_AS_DOUBLE
 static_assert(sizeof(Float) == sizeof(FloatBits),
               "Float and FloatBits must have the same size");
 
-template <typename T>
-class Vector2;
-template <typename T>
-class Vector3;
-template <typename T>
-class Point3;
-template <typename T>
-class Point2;
-template <typename T>
-class Normal3;
+template <typename T> class Vector2;
+template <typename T> class Vector3;
+template <typename T> class Point3;
+template <typename T> class Point2;
+template <typename T> class Normal3;
 using Point2f = Point2<Float>;
 using Point2i = Point2<int>;
 using Point3f = Point3<Float>;
@@ -122,12 +125,10 @@ using Vector2f = Vector2<Float>;
 using Vector2i = Vector2<int>;
 using Vector3f = Vector3<Float>;
 
-template <typename T>
-class Bounds2;
+template <typename T> class Bounds2;
 using Bounds2f = Bounds2<Float>;
 using Bounds2i = Bounds2<int>;
-template <typename T>
-class Bounds3;
+template <typename T> class Bounds3;
 using Bounds3f = Bounds3<Float>;
 using Bounds3i = Bounds3<int>;
 
@@ -169,11 +170,9 @@ class ProgressReporter;
 class RNG;
 struct FileLoc;
 class Interval;
-template <typename T>
-class Array2D;
+template <typename T> class Array2D;
 
-template <typename T>
-struct SOA;
+template <typename T> struct SOA;
 class ScratchBuffer;
 
 // Define _Allocator_
@@ -183,6 +182,6 @@ using Allocator = pstd::pmr::polymorphic_allocator<std::byte>;
 void InitPBRT(const PBRTOptions &opt);
 void CleanupPBRT();
 
-}  // namespace pbrt
+} // namespace pbrt
 
-#endif  // PBRT_PBRT_H
+#endif // PBRT_PBRT_H

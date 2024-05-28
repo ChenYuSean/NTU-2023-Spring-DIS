@@ -10,9 +10,9 @@ make -C ./pbrt-v4/build/ -j8
 ```bash
 ./pbrt-v4/build/pbrt --outfile sphere.png ./scene/sphere.pbrt
 
-./pbrt-v4/build/pbrt ./scene/pbrt-v4-scenes-master/pbrt-book/book.pbrt
+./pbrt-v4/build/pbrt --write-partial-images ./scene/teapot/scene-v4.pbrt
 
-./pbrt-v4/build/pbrt ./scene/teapot/scene-v4.pbrt
+./pbrt-v4/build/pbrt ./scene/pbrt-v4-scenes-master/pbrt-book/book.pbrt
 
 ./pbrt-v4/build/pbrt ./scene/veach-mis/scene-v4.pbrt
 ```
