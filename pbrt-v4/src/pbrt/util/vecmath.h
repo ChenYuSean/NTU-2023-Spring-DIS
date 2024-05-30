@@ -1653,6 +1653,13 @@ PBRT_CPU_GPU inline Bounds3<T> Union(const Bounds3<T> &b, Point3<T> p) {
   Bounds3<T> ret;
   ret.pMin = Min(b.pMin, p);
   ret.pMax = Max(b.pMax, p);
+  ret.slabs = b.slabs;
+  ret.slabs[Normal3<T>(1,0,0)].dMin = std::min(ret.slabs[Normal3<T>(1,0,0)].dMin, p.x);
+  ret.slabs[Normal3<T>(1,0,0)].dMax = std::max(ret.slabs[Normal3<T>(1,0,0)].dMax, p.x);
+  ret.slabs[Normal3<T>(0,1,0)].dMin = std::min(ret.slabs[Normal3<T>(0,1,0)].dMin, p.y);
+  ret.slabs[Normal3<T>(0,1,0)].dMax = std::max(ret.slabs[Normal3<T>(0,1,0)].dMax, p.y);
+  ret.slabs[Normal3<T>(0,0,1)].dMin = std::min(ret.slabs[Normal3<T>(0,0,1)].dMin, p.z);
+  ret.slabs[Normal3<T>(0,0,1)].dMax = std::max(ret.slabs[Normal3<T>(0,0,1)].dMax, p.z);
   return ret;
 }
 
@@ -1662,16 +1669,38 @@ PBRT_CPU_GPU inline Bounds3<T> Union(const Bounds3<T> &b1,
   Bounds3<T> ret;
   ret.pMin = Min(b1.pMin, b2.pMin);
   ret.pMax = Max(b1.pMax, b2.pMax);
+  ret.slabs = b1.slabs;
+  for (auto it = b2.slabs.begin(); it != b2.slabs.end(); ++it) {
+    const auto &slab = it->second;
+    if(ret.slabs.find(slab.normal) == ret.slabs.end())
+      ret.slabs[slab.normal] = slab;
+    else {
+      auto &retSlab = ret.slabs[slab.normal];
+      retSlab.dMin = std::min(retSlab.dMin, slab.dMin);
+      retSlab.dMax = std::max(retSlab.dMax, slab.dMax);
+    }
+  }
   return ret;
 }
 
 template <typename T>
 PBRT_CPU_GPU inline Bounds3<T> Intersect(const Bounds3<T> &b1,
                                          const Bounds3<T> &b2) {
-  Bounds3<T> b;
-  b.pMin = Max(b1.pMin, b2.pMin);
-  b.pMax = Min(b1.pMax, b2.pMax);
-  return b;
+  Bounds3<T> ret;
+  ret.pMin = Max(b1.pMin, b2.pMin);
+  ret.pMax = Min(b1.pMax, b2.pMax);
+  ret.slabs = b1.slabs;
+  for (auto it = b2.slabs.begin(); it != b2.slabs.end(); ++it) {
+    const auto &slab = it->second;
+    if(ret.slabs.find(slab.normal) == ret.slabs.end())
+      ret.slabs[slab.normal] = slab;
+    else {
+      auto &retSlab = ret.slabs[slab.normal];
+      retSlab.dMin = std::max(retSlab.dMin, slab.dMin);
+      retSlab.dMax = std::min(retSlab.dMax, slab.dMax);
+    }
+  }
+  return ret;
 }
 
 template <typename T>
@@ -1725,8 +1754,15 @@ PBRT_CPU_GPU inline auto Distance(Point3<T> p, const Bounds3<U> &b) {
 template <typename T, typename U>
 PBRT_CPU_GPU inline Bounds3<T> Expand(const Bounds3<T> &b, U delta) {
   Bounds3<T> ret;
+  ret.slabs = b.slabs;
   ret.pMin = b.pMin - Vector3<T>(delta, delta, delta);
   ret.pMax = b.pMax + Vector3<T>(delta, delta, delta);
+  ret.slabs[Normal3<T>(1,0,0)].dMin -= delta;
+  ret.slabs[Normal3<T>(1,0,0)].dMax += delta;
+  ret.slabs[Normal3<T>(0,1,0)].dMin -= delta;
+  ret.slabs[Normal3<T>(0,1,0)].dMax += delta;
+  ret.slabs[Normal3<T>(0,0,1)].dMin -= delta;
+  ret.slabs[Normal3<T>(0,0,1)].dMax += delta;
   return ret;
 }
 
@@ -1770,41 +1806,40 @@ PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,Float tMax
 }
 
 template <typename T>
-PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,
-                                                Float raytMax, Vector3f invDir,
-                                                const int dirIsNeg[3]) const {
-  const Bounds3f &bounds = *this;
-  // Check for ray intersection against $x$ and $y$ slabs
-  Float tMin = (bounds[dirIsNeg[0]].x - o.x) * invDir.x;
-  Float tMax = (bounds[1 - dirIsNeg[0]].x - o.x) * invDir.x;
-  Float tyMin = (bounds[dirIsNeg[1]].y - o.y) * invDir.y;
-  Float tyMax = (bounds[1 - dirIsNeg[1]].y - o.y) * invDir.y;
-  // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-  tMax *= 1 + 2 * gamma(3);
-  tyMax *= 1 + 2 * gamma(3);
+PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,Float raytMax,
+                                                Vector3f invDir, const int dirIsNeg[3]) const {
+  // const Bounds3f &bounds = *this;
+  // // Check for ray intersection against $x$ and $y$ slabs
+  // Float tMin = (bounds[dirIsNeg[0]].x - o.x) * invDir.x;
+  // Float tMax = (bounds[1 - dirIsNeg[0]].x - o.x) * invDir.x;
+  // Float tyMin = (bounds[dirIsNeg[1]].y - o.y) * invDir.y;
+  // Float tyMax = (bounds[1 - dirIsNeg[1]].y - o.y) * invDir.y;
+  // // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
+  // tMax *= 1 + 2 * gamma(3);
+  // tyMax *= 1 + 2 * gamma(3);
 
-  if (tMin > tyMax || tyMin > tMax)
-    return false;
-  if (tyMin > tMin)
-    tMin = tyMin;
-  if (tyMax < tMax)
-    tMax = tyMax;
+  // if (tMin > tyMax || tyMin > tMax)
+  //   return false;
+  // if (tyMin > tMin)
+  //   tMin = tyMin;
+  // if (tyMax < tMax)
+  //   tMax = tyMax;
 
-  // Check for ray intersection against $z$ slab
-  Float tzMin = (bounds[dirIsNeg[2]].z - o.z) * invDir.z;
-  Float tzMax = (bounds[1 - dirIsNeg[2]].z - o.z) * invDir.z;
-  // Update _tzMax_ to ensure robust bounds intersection
-  tzMax *= 1 + 2 * gamma(3);
+  // // Check for ray intersection against $z$ slab
+  // Float tzMin = (bounds[dirIsNeg[2]].z - o.z) * invDir.z;
+  // Float tzMax = (bounds[1 - dirIsNeg[2]].z - o.z) * invDir.z;
+  // // Update _tzMax_ to ensure robust bounds intersection
+  // tzMax *= 1 + 2 * gamma(3);
 
-  if (tMin > tzMax || tzMin > tMax)
-    return false;
-  if (tzMin > tMin)
-    tMin = tzMin;
-  if (tzMax < tMax)
-    tMax = tzMax;
+  // if (tMin > tzMax || tzMin > tMax)
+  //   return false;
+  // if (tzMin > tMin)
+  //   tMin = tzMin;
+  // if (tzMax < tMax)
+  //   tMax = tzMax;
 
-  return (tMin < raytMax) && (tMax > 0);
-  // return IntersectP(o, d, raytMax);
+  // return (tMin < raytMax) && (tMax > 0);
+  return IntersectP(o, d, raytMax);
 }
 
 PBRT_CPU_GPU
