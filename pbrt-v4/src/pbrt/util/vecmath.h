@@ -17,6 +17,7 @@
 #include <cmath>
 #include <iterator>
 #include <string>
+#include <unordered_map>
 
 namespace pbrt {
 
@@ -1127,7 +1128,15 @@ PBRT_CPU_GPU inline Quaternion Slerp(Float t, Quaternion q1, Quaternion q2) {
 
 // -------------------- Slabs ----------------------
 
-// Slab Definition
+/* Slab Definition
+  * A slab is a 3D object defined by a normal and two distances from the origin.
+  * or space between two parallel planes.
+  * Formula of the plane: Dot(normal, X) = d
+  * The slab is the set of points p such that
+  *   dMin <= Dot(p, normal) <= dMax
+  * The slab is empty if dMin > dMax.
+  * The slab is degenerate if dMin == dMax.
+*/
 template <typename T> class Slab3 {
 public:
   // Slab Public Methods
@@ -1233,43 +1242,47 @@ public:
 // Slab Inline Functions
 template <typename T>
 PBRT_CPU_GPU inline bool Inside(Point3<T> p, const Slab3<T> &s) {
-  return ((s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z + s.d >= s.dMix) && 
-          (s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z + s.d <= s.dMax));
+  return ((s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z >= s.dMin) &&
+          (s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z <= s.dMax));
 }
 
 template <typename T>
 PBRT_CPU_GPU inline bool InsideExclusive(Point3<T> p, const Slab3<T> &s) {
-  return ((s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z + s.d >= s.dMix) && 
-          (s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z + s.d < s.dMax));
+  return ((s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z >= s.dMin) &&
+          (s.normal.x * p.x + s.normal.y * p.y + s.normal.z * p.z < s.dMax));
 }
 
 template <typename T>
-PBRT_CPU_GPU inline bool Slab3<T>::IntersectP(Point3f o, Vector3f d,
-                                                Float tMax, Float *hitt0,
-                                                Float *hitt1) const {
-    
-    Float t0 = 0, t1 = tMax;
-    // Update interval for _i_th bounding box slab
-    Float invRayDir = 1 / (d.x*this->normal.x + d.y*this->normal.y + d.z*this->normal.z);
-    Float tNear = (this->dMin - (o.x*this->normal.x + o.y*this->normal.y + o.z*this->normal.z)) * invRayDir;
-    Float tFar = (this->dMax - (o.x*this->normal.x + o.y*this->normal.y + o.z*this->normal.z))* invRayDir;
-    // Update parametric interval from slab intersection $t$ values
-    if (tNear > tFar)
-        pstd::swap(tNear, tFar);
-    // Update _tFar_ to ensure robust ray--bounds intersection
-    tFar *= 1 + 2 * gamma(3);
+PBRT_CPU_GPU inline bool Slab3<T>::IntersectP(Point3f o, Vector3f d, Float tMax, 
+                                              Float *hitt0, Float *hitt1) const {
 
-    t0 = tNear > t0 ? tNear : t0;
-    t1 = tFar < t1 ? tFar : t1;
-    if (t0 > t1)
-        return false;
+  Float t0 = 0, t1 = tMax;
+  // Update interval for _i_th bounding box slab
+  Float invRayDir = 1 / (d.x*this->normal.x + d.y*this->normal.y + d.z*this->normal.z);
+  Float tNear = (this->dMin - (o.x*this->normal.x + o.y*this->normal.y + o.z*this->normal.z)) * invRayDir;
+  Float tFar = (this->dMax - (o.x*this->normal.x + o.y*this->normal.y + o.z*this->normal.z))* invRayDir;
+  // Update parametric interval from slab intersection $t$ values
+  if (tNear > tFar)
+    pstd::swap(tNear, tFar);
+  // Update _tFar_ to ensure robust ray--bounds intersection
+  tFar *= 1 + 2 * gamma(3);
 
-    if (hitt0)
-        *hitt0 = t0;
-    if (hitt1)
-        *hitt1 = t1;
-    return true;
+  t0 = tNear > t0 ? tNear : t0;
+  t1 = tFar < t1 ? tFar : t1;
+  if (t0 > t1)
+    return false;
+
+  if (hitt0)
+    *hitt0 = t0;
+  if (hitt1)
+    *hitt1 = t1;
+  return true;
 }
+
+template <typename T> class Slab3Hasher {
+public:
+  size_t operator()(const Normal3<T> &n) const { return Hash(n); }
+};
 
 
 // -------------------------------------------------
@@ -1378,7 +1391,6 @@ public:
 // Bounds3 Definition
 template <typename T> class Bounds3 {
 public:
-
   // Bounds3 Public Methods
   PBRT_CPU_GPU
   Bounds3() {
@@ -1386,13 +1398,12 @@ public:
     T maxNum = std::numeric_limits<T>::max();
     pMin = Point3<T>(maxNum, maxNum, maxNum);
     pMax = Point3<T>(minNum, minNum, minNum);
-    AddSlab(Normal3<T>(1, 0, 0), maxNum, minNum);
-    AddSlab(Normal3<T>(0, 1, 0), maxNum, minNum);
-    AddSlab(Normal3<T>(0, 0, 1), maxNum, minNum);
+    slabs = std::unordered_map<Normal3<T>, Slab3<T>, Slab3Hasher<T>>();
   }
 
   PBRT_CPU_GPU
   explicit Bounds3(Point3<T> p) : pMin(p), pMax(p) {
+    slabs = std::unordered_map<Normal3<T>, Slab3<T>, Slab3Hasher<T>>();
     AddSlab(Normal3<T>(1, 0, 0), p.x, p.x);
     AddSlab(Normal3<T>(0, 1, 0), p.y, p.y);
     AddSlab(Normal3<T>(0, 0, 1), p.z, p.z);
@@ -1400,6 +1411,7 @@ public:
 
   PBRT_CPU_GPU
   Bounds3(Point3<T> p1, Point3<T> p2) : pMin(Min(p1, p2)), pMax(Max(p1, p2)) {
+    slabs = std::unordered_map<Normal3<T>, Slab3<T>, Slab3Hasher<T>>();
     AddSlab(Normal3<T>(1, 0, 0), pMin.x, pMax.x);
     AddSlab(Normal3<T>(0, 1, 0), pMin.y, pMax.y);
     AddSlab(Normal3<T>(0, 0, 1), pMin.z, pMax.z);
@@ -1418,12 +1430,20 @@ public:
 
   PBRT_CPU_GPU
   void AddSlab(Normal3<T> normal, T d1, T d2) {
-    slabs.push_back(Slab3<T>(normal, d1, d2));
+    AddSlab(Slab3<T>(normal, d1, d2));
   }
 
   PBRT_CPU_GPU
-  void AddSlab(Slab3<T> &s) {
-    slabs.push_back(s);
+  void AddSlab(Slab3<T> s) { 
+    auto it = slabs.find(s.normal);
+    if(it == slabs.end())
+      slabs[s.normal] = s;
+    else {
+      // overwrite the slab with the new one
+      auto &slab = it->second;
+      slab.dMin = s.dMin;
+      slab.dMax = s.dMax;
+    }
   }
 
   PBRT_CPU_GPU
@@ -1524,7 +1544,7 @@ public:
 
   // Bounds3 Public Members
   Point3<T> pMin, pMax;
-  std::vector<Slab3<T>> slabs;
+  std::unordered_map<Normal3<T>, Slab3<T>, Slab3Hasher<T>> slabs;
 };
 
 // Bounds[23][fi] Definitions
@@ -1664,14 +1684,26 @@ PBRT_CPU_GPU inline bool Overlaps(const Bounds3<T> &b1, const Bounds3<T> &b2) {
 
 template <typename T>
 PBRT_CPU_GPU inline bool Inside(Point3<T> p, const Bounds3<T> &b) {
-  return (p.x >= b.pMin.x && p.x <= b.pMax.x && p.y >= b.pMin.y &&
-          p.y <= b.pMax.y && p.z >= b.pMin.z && p.z <= b.pMax.z);
+  // return (p.x >= b.pMin.x && p.x <= b.pMax.x && p.y >= b.pMin.y &&
+  //         p.y <= b.pMax.y && p.z >= b.pMin.z && p.z <= b.pMax.z);
+  for (auto &pair : b.slabs) {
+    const Slab3<T> &slab = pair.second;
+    if (!Inside(p, slab))
+      return false;
+  }
+  return true;
 }
 
 template <typename T>
 PBRT_CPU_GPU inline bool InsideExclusive(Point3<T> p, const Bounds3<T> &b) {
-  return (p.x >= b.pMin.x && p.x < b.pMax.x && p.y >= b.pMin.y &&
-          p.y < b.pMax.y && p.z >= b.pMin.z && p.z < b.pMax.z);
+  // return (p.x >= b.pMin.x && p.x < b.pMax.x && p.y >= b.pMin.y &&
+  //         p.y < b.pMax.y && p.z >= b.pMin.z && p.z < b.pMax.z);
+  for (auto &pair : b.slabs) {
+    const Slab3<T> &slab = pair.second;
+    if (!InsideExclusive(p, slab))
+      return false;
+  }
+  return true;
 }
 
 template <typename T, typename U>
@@ -1699,10 +1731,10 @@ PBRT_CPU_GPU inline Bounds3<T> Expand(const Bounds3<T> &b, U delta) {
 }
 
 template <typename T>
-PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,
-                                                Float tMax, Float *hitt0,
-                                                Float *hitt1) const {
+PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,Float tMax, 
+                                                Float *hitt0, Float *hitt1) const {
   Float t0 = 0, t1 = tMax;
+
   // for (int i = 0; i < 3; ++i) {
   //   // Update interval for _i_th bounding box slab
   //   Float invRayDir = 1 / d[i];
@@ -1719,16 +1751,16 @@ PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,
   //   if (t0 > t1)
   //     return false;
   // }
-  for (int i = 0; i < this->slabs.size(); ++i) {
+  for(auto &pair : slabs) {
+    const Slab3<T> &slab = pair.second;
     Float tNear = 0;
     Float tFar = tMax;
-    if (!this->slabs[i].IntersectP(o, d, tMax, &tNear, &tFar))
+    if (!slab.IntersectP(o, d, tMax, &tNear, &tFar))
       return false;
     t0 = tNear > t0 ? tNear : t0;
     t1 = tFar < t1 ? tFar : t1;
     if (t0 > t1)
       return false;
-    
   }
   if (hitt0)
     *hitt0 = t0;
@@ -1741,38 +1773,38 @@ template <typename T>
 PBRT_CPU_GPU inline bool Bounds3<T>::IntersectP(Point3f o, Vector3f d,
                                                 Float raytMax, Vector3f invDir,
                                                 const int dirIsNeg[3]) const {
-  // const Bounds3f &bounds = *this;
-  // // Check for ray intersection against $x$ and $y$ slabs
-  // Float tMin = (bounds[dirIsNeg[0]].x - o.x) * invDir.x;
-  // Float tMax = (bounds[1 - dirIsNeg[0]].x - o.x) * invDir.x;
-  // Float tyMin = (bounds[dirIsNeg[1]].y - o.y) * invDir.y;
-  // Float tyMax = (bounds[1 - dirIsNeg[1]].y - o.y) * invDir.y;
-  // // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-  // tMax *= 1 + 2 * gamma(3);
-  // tyMax *= 1 + 2 * gamma(3);
+  const Bounds3f &bounds = *this;
+  // Check for ray intersection against $x$ and $y$ slabs
+  Float tMin = (bounds[dirIsNeg[0]].x - o.x) * invDir.x;
+  Float tMax = (bounds[1 - dirIsNeg[0]].x - o.x) * invDir.x;
+  Float tyMin = (bounds[dirIsNeg[1]].y - o.y) * invDir.y;
+  Float tyMax = (bounds[1 - dirIsNeg[1]].y - o.y) * invDir.y;
+  // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
+  tMax *= 1 + 2 * gamma(3);
+  tyMax *= 1 + 2 * gamma(3);
 
-  // if (tMin > tyMax || tyMin > tMax)
-  //   return false;
-  // if (tyMin > tMin)
-  //   tMin = tyMin;
-  // if (tyMax < tMax)
-  //   tMax = tyMax;
+  if (tMin > tyMax || tyMin > tMax)
+    return false;
+  if (tyMin > tMin)
+    tMin = tyMin;
+  if (tyMax < tMax)
+    tMax = tyMax;
 
-  // // Check for ray intersection against $z$ slab
-  // Float tzMin = (bounds[dirIsNeg[2]].z - o.z) * invDir.z;
-  // Float tzMax = (bounds[1 - dirIsNeg[2]].z - o.z) * invDir.z;
-  // // Update _tzMax_ to ensure robust bounds intersection
-  // tzMax *= 1 + 2 * gamma(3);
+  // Check for ray intersection against $z$ slab
+  Float tzMin = (bounds[dirIsNeg[2]].z - o.z) * invDir.z;
+  Float tzMax = (bounds[1 - dirIsNeg[2]].z - o.z) * invDir.z;
+  // Update _tzMax_ to ensure robust bounds intersection
+  tzMax *= 1 + 2 * gamma(3);
 
-  // if (tMin > tzMax || tzMin > tMax)
-  //   return false;
-  // if (tzMin > tMin)
-  //   tMin = tzMin;
-  // if (tzMax < tMax)
-  //   tMax = tzMax;
+  if (tMin > tzMax || tzMin > tMax)
+    return false;
+  if (tzMin > tMin)
+    tMin = tzMin;
+  if (tzMax < tMax)
+    tMax = tzMax;
 
-  // return (tMin < raytMax) && (tMax > 0);
-  return IntersectP(o, d, raytMax);
+  return (tMin < raytMax) && (tMax > 0);
+  // return IntersectP(o, d, raytMax);
 }
 
 PBRT_CPU_GPU

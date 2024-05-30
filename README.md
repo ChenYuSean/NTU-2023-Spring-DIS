@@ -19,9 +19,10 @@ make -C ./pbrt-v4/build/ -j8
 
 ### Options Arguments
 
-- `--outfile`: saved filename
+- `--outfile <filename>`: saved filename
 - `--write-partial-images`: output during rendering
 - `--log-level verbose`: show all logging text 
+- `--nthreads <num>`: number of threads
 
 ### Ref
 [pbrt, Version 4](https://github.com/mmp/pbrt-v4)  

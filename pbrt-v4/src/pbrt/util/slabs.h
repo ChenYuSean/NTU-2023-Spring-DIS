@@ -1,29 +1,3 @@
-// Slab3 Inline Functions
-// template <typename T>
-// PBRT_CPU_GPU inline Slab3<T> Union(const Slab3<T> &s, Point3<T> p) {
-//   Slab3<T> ret;
-//   ret.pMin = Min(b.pMin, p);
-//   ret.pMax = Max(b.pMax, p);
-//   return ret;
-// }
-
-// template <typename T>
-// PBRT_CPU_GPU inline Slab3<T> Union(const Slab3<T> &s1,
-//                                      const Slab3<T> &s2) {
-//   Slab3<T> ret;
-//   ret.pMin = Min(b1.pMin, b2.pMin);
-//   ret.pMax = Max(b1.pMax, b2.pMax);
-//   return ret;
-// }
-
-// template <typename T>
-// PBRT_CPU_GPU inline Slab3<T> Intersect(const Slab3<T> &s1,
-//                                          const Slab3<T> &s2) {
-//   Slab3<T> b;
-//   b.pMin = Max(b1.pMin, b2.pMin);
-//   b.pMax = Min(b1.pMax, b2.pMax);
-//   return b;
-// }
 
 // template <typename T>
 // PBRT_CPU_GPU inline bool Overlaps(const Slab3<T> &s1, const Slab3<T> &s2) {
