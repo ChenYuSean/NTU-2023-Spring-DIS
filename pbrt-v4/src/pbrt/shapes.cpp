@@ -296,8 +296,12 @@ Bounds3f Triangle::Bounds() const {
     const TriangleMesh *mesh = GetMesh();
     const int *v = &mesh->vertexIndices[3 * triIndex];
     Point3f p0 = mesh->p[v[0]], p1 = mesh->p[v[1]], p2 = mesh->p[v[2]];
-
-    return Union(Bounds3f(p0, p1), p2);
+    // TODO: add slabs to bounds
+    auto bounds = Union(Bounds3f(p0, p1), p2);
+    for(int i = 0; i < mesh->nSlabs; i++){
+        bounds.AddSlab(mesh->slabs[i], mesh->displacement[i].x, mesh->displacement[i].y);
+    }
+    return bounds;
 }
 
 DirectionCone Triangle::NormalBounds() const {
@@ -436,9 +440,23 @@ TriangleMesh *Triangle::CreateMesh(const Transform *renderFromObject,
         faceIndices = {};
     }
 
+    std::vector<Normal3f> slabs = parameters.GetNormal3fArray("slabNormal");
+    std::vector<Point2f> displacement = parameters.GetPoint2fArray("displacement");
+    if (!slabs.empty()){
+        // DBG_STR("SLAB");
+        if(displacement.size() != slabs.size()){
+            Error(loc,
+                "Number of normals %d does not match number of displacement pairs %d. "
+                "Discarding slabs.",
+                int(slabs.size()), int(displacement.size()));
+            slabs = {};
+            displacement = {};
+        }
+    }
+
     return alloc.new_object<TriangleMesh>(
         *renderFromObject, reverseOrientation, std::move(vi), std::move(P), std::move(S),
-        std::move(N), std::move(uvs), std::move(faceIndices), alloc);
+        std::move(N), std::move(uvs), std::move(faceIndices), alloc, std::move(slabs), std::move(displacement));
 }
 
 STAT_MEMORY_COUNTER("Memory/Curves", curveBytes);
@@ -1412,6 +1430,7 @@ pstd::vector<Shape> Shape::Create(
         shapes = Curve::Create(renderFromObject, objectFromRender, reverseOrientation,
                                parameters, loc, alloc);
     else if (name == "trianglemesh") {
+        // TRACE: create triangle shape from here
         TriangleMesh *mesh = Triangle::CreateMesh(renderFromObject, reverseOrientation,
                                                   parameters, loc, alloc);
         shapes = Triangle::CreateTriangles(mesh, alloc);

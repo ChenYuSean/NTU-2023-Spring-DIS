@@ -260,6 +260,9 @@ void BasicSceneBuilder::LightSource(const std::string &name, ParsedParameterVect
 
 void BasicSceneBuilder::Shape(const std::string &name, ParsedParameterVector params,
                               FileLoc loc) {
+    // TRACE:BasicSceneBuilder would add ShapeSceneEntity to the list
+    //      BasicScene then would use ShapeSceneEntity to create scene
+    //      RenderCPU() in render.cpp would call BasicScene::CreateAggregate() in next step.
     VERIFY_WORLD("Shape");
 
     ParameterDictionary dict(std::move(params), graphicsState.shapeAttributes,
@@ -1355,6 +1358,8 @@ Primitive BasicScene::CreateAggregate(
     const std::map<std::string, Medium> &media,
     const std::map<std::string, pbrt::Material> &namedMaterials,
     const std::vector<pbrt::Material> &materials) {
+    // TRACE: RenderCPU() in render.cpp would call this
+    //      Here would create shape by Shape::Create()
     Allocator alloc;
     auto findMedium = [&media](const std::string &s, const FileLoc *loc) -> Medium {
         if (s.empty())

@@ -27,7 +27,8 @@ class TriangleMesh {
     TriangleMesh(const Transform &renderFromObject, bool reverseOrientation,
                  std::vector<int> vertexIndices, std::vector<Point3f> p,
                  std::vector<Vector3f> S, std::vector<Normal3f> N,
-                 std::vector<Point2f> uv, std::vector<int> faceIndices, Allocator alloc);
+                 std::vector<Point2f> uv, std::vector<int> faceIndices, Allocator alloc,
+                 std::vector<Normal3f> slabs = {}, std::vector<Point2f> displacement = {});
 
     std::string ToString() const;
 
@@ -44,6 +45,11 @@ class TriangleMesh {
     const Point2f *uv = nullptr;
     const int *faceIndices = nullptr;
     bool reverseOrientation, transformSwapsHandedness;
+
+    // Slabs
+    int nSlabs = 0;
+    const Normal3f *slabs = nullptr;
+    const Point2f *displacement = nullptr;
 };
 
 // BilinearPatchMesh Definition

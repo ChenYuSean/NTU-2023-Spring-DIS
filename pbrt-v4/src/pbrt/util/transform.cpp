@@ -135,6 +135,11 @@ Bounds3f Transform::operator()(const Bounds3f &b) const {
     Bounds3f bt;
     for (int i = 0; i < 8; ++i)
         bt = Union(bt, (*this)(b.Corner(i)));
+    // TODO: (optional?) Add Slab Transform
+    // for (auto it = b.slabs.begin(); it != b.slabs.end(); ++it) {
+    //     const auto &slab = it->second;
+    //     bt.AddSlab((*this)(slab.normal), slab.dMin, slab.dMax);
+    // }
     return bt;
 }
 

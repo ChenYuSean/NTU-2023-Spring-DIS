@@ -24,7 +24,7 @@ TriangleMesh::TriangleMesh(const Transform &renderFromObject, bool reverseOrient
                            std::vector<int> indices, std::vector<Point3f> p,
                            std::vector<Vector3f> s, std::vector<Normal3f> n,
                            std::vector<Point2f> uv, std::vector<int> faceIndices,
-                           Allocator alloc)
+                           Allocator alloc, std::vector<Normal3f> slabs, std::vector<Point2f> displacement)
     : nTriangles(indices.size() / 3), nVertices(p.size()) {
     CHECK_EQ((indices.size() % 3), 0);
     ++nTriMeshes;
@@ -65,6 +65,16 @@ TriangleMesh::TriangleMesh(const Transform &renderFromObject, bool reverseOrient
     if (!faceIndices.empty()) {
         CHECK_EQ(nTriangles, faceIndices.size());
         this->faceIndices = intBufferCache->LookupOrAdd(faceIndices, alloc);
+    }
+
+    if(!slabs.empty()){
+        // for(int i = 0; i < slabs.size(); i++){
+        //     DBG_VAR(slabs[i]);
+        //     DBG_VAR(displacement[i]);
+        // }
+        this->nSlabs = slabs.size();
+        this->slabs = normal3BufferCache->LookupOrAdd(slabs, alloc);
+        this->displacement = point2BufferCache->LookupOrAdd(displacement, alloc);
     }
 
     // Make sure that we don't have too much stuff to be using integers to
