@@ -1220,7 +1220,7 @@ public:
   }
   PBRT_CPU_GPU
   bool operator!=(const Bounds3<T> &s) const {
-    return s.normal == normal || s.dMin == dMin || s.dMax == dMax;
+    return s.normal != normal || s.dMin != dMin || s.dMax != dMax;
   }
   PBRT_CPU_GPU
   bool IntersectP(Point3f o, Vector3f d, Float tMax = Infinity,
@@ -1506,11 +1506,23 @@ public:
 
   PBRT_CPU_GPU
   bool IsEmpty() const {
-    return pMin.x >= pMax.x || pMin.y >= pMax.y || pMin.z >= pMax.z;
+    // return pMin.x >= pMax.x || pMin.y >= pMax.y || pMin.z >= pMax.z;
+    for (auto &pair : this->slabs) {
+      const Slab3<T> &slab = pair.second;
+      if (slab.IsEmpty())
+        return true;
+    }
+    return false;
   }
   PBRT_CPU_GPU
   bool IsDegenerate() const {
-    return pMin.x > pMax.x || pMin.y > pMax.y || pMin.z > pMax.z;
+    // return pMin.x > pMax.x || pMin.y > pMax.y || pMin.z > pMax.z;
+    for (auto &pair : this->slabs) {
+      const Slab3<T> &slab = pair.second;
+      if (slab.IsDegenerate())
+        return true;
+    }
+    return false;
   }
 
   template <typename U> PBRT_CPU_GPU explicit Bounds3(const Bounds3<U> &b) {
@@ -1521,15 +1533,19 @@ public:
     else {
       pMin = Point3<T>(b.pMin);
       pMax = Point3<T>(b.pMax);
+      for (auto &pair : b->slabs) {
+        const Slab3<T> &slab = pair.second;
+        this->AddSlab(slab);
+      }
     }
   }
   PBRT_CPU_GPU
   bool operator==(const Bounds3<T> &b) const {
-    return b.pMin == pMin && b.pMax == pMax;
+    return b.pMin == pMin && b.pMax == pMax && b.slabs == slabs;
   }
   PBRT_CPU_GPU
   bool operator!=(const Bounds3<T> &b) const {
-    return b.pMin != pMin || b.pMax != pMax;
+    return b.pMin != pMin || b.pMax != pMax || b.slabs != slabs;
   }
   PBRT_CPU_GPU
   bool IntersectP(Point3f o, Vector3f d, Float tMax = Infinity,
